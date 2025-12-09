@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Simple CSE Portfolio Manager</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root{--bg:#f5f7fb;--card:#fff;--accent:#0b5ed7;--muted:#6b7280}
+    body{font-family:Inter,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial;background:var(--bg);margin:0;padding:20px;color:#111}
+    .container{max-width:1100px;margin:0 auto}
+    header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+    h1{font-size:18px;margin:0}
+    nav button{margin-left:8px;padding:8px 12px;border-radius:6px;border:1px solid #ddd;background:#fff;cursor:pointer}
+    .card{background:var(--card);border-radius:10px;padding:16px;box-shadow:0 1px 4px rgba(10,10,10,.06);margin-bottom:16px}
+    .grid{display:grid;grid-template-columns:1fr 320px;gap:12px}
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    input,select{width:100%;padding:10px;border-radius:8px;border:1px solid #ddd;margin-bottom:8px}
+    table{width:100%;border-collapse:collapse;font-size:14px}
+    th,td{padding:8px;border-bottom:1px solid #eee;text-align:left}
+    .small{font-size:13px;color:var(--muted)}
+    .btn{display:inline-block;padding:8px 12px;background:var(--accent);color:#fff;border-radius:8px;border:none;cursor:pointer}
+    .btn.ghost{background:#fff;color:var(--accent);border:1px solid #cfe0ff}
+    .actions{display:flex;gap:8px;flex-wrap:wrap}
+    .ticker-link{font-size:12px;background:#eef6ff;padding:6px 8px;border-radius:6px;border:1px solid #d6eaff}
+    .note{font-size:13px;color:var(--muted);margin-top:8px}
+    @media (max-width:880px){.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Simple CSE Portfolio Manager (local)</h1>
+      <nav>
+        <button id="tab-transactions" class="btn">Transactions</button>
+        <button id="tab-portfolio" class="btn ghost">Portfolio</button>
+      </nav>
+    </header>
+
+    <!-- Transactions view -->
+    <div id="view-transactions" class="card">
+      <div class="grid">
+        <div>
+          <h3>New Transaction</h3>
+          <div>
+            <label>Ticker (use CSE format: e.g. BALA.N)</label>
+            <input id="tx-ticker" placeholder="e.g. BALA.N" />
+            <label>Type</label>
+            <select id="tx-type">
+              <option value="buy">Buy</option>
+              <option value="sell">Sell</option>
+            </select>
+            <label>Quantity</label>
+            <input id="tx-qty" type="number" min="0" step="1" />
+            <label>Price (LKR)</label>
+            <input id="tx-price" type="number" min="0" step="0.01" />
+            <label>Date</label>
+            <input id="tx-date" type="date" />
+            <div style="margin-top:8px">
+              <button id="tx-add" class="btn">Add Transaction</button>
+              <button id="tx-clear" class="btn ghost" style="margin-left:8px">Clear Form</button>
+            </div>
+          </div>
+
+          <div style="margin-top:14px">
+            <h4>Import / Export</h4>
+            <div class="actions" style="margin-bottom:8px">
+              <button id="export-csv" class="btn">Export CSV</button>
+              <button id="import-csv-btn" class="btn ghost">Import CSV</button>
+              <input id="import-csv-file" type="file" accept=".csv" style="display:none" />
+            </div>
+            <div class="note">CSV columns expected: ticker,type,qty,price,date</div>
+          </div>
+        </div>
+
+        <div>
+          <h3>Transaction History</h3>
+          <div class="card" style="padding:8px;max-height:420px;overflow:auto">
+            <table id="tx-table">
+              <thead><tr><th>Ticker</th><th>Type</th><th>Qty</th><th>Price</th><th>Date</th><th></th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div style="margin-top:10px">
+            <button id="tx-clear-all" class="btn ghost">Clear All Transactions</button>
+            <div class="note">Transactions are saved locally in your browser (localStorage).</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Portfolio view -->
+    <div id="view-portfolio" class="card" style="display:none">
+      <h3>Portfolio Summary</h3>
+      <div class="card" style="padding:10px">
+        <table id="portfolio-table">
+          <thead><tr><th>Ticker</th><th>Qty</th><th>Avg Cost (LKR)</th><th>Total Cost (LKR)</th><th>Current Price (LKR)</th><th>Market Value (LKR)</th><th>P/L (LKR)</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center">
+          <div class="small">Tip: click the chart icon to open TradingView for the ticker. Paste current price into the Current Price field (use your broker/CSE app).</div>
+          <div>
+            <button id="refresh-manual" class="btn ghost">Recalculate</button>
+            <button id="export-portfolio" class="btn">Export Holdings CSV</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:12px">
+        <h4>Portfolio Totals</h4>
+        <div class="card" style="display:flex;gap:12px;flex-wrap:wrap">
+          <div><strong>Total Invested:</strong> <span id="total-invested">LKR 0.00</span></div>
+          <div><strong>Market Value:</strong> <span id="market-value">LKR 0.00</span></div>
+          <div><strong>Unrealized P/L:</strong> <span id="unreal-pl">LKR 0.00</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+/* Simple CSE portfolio manager - single HTML file
+   - Stores transactions in localStorage under key 'cse_tx'
+   - Aggregates holdings and computes avg cost
+   - Current price is editable by user per ticker
+   - CSV import/export
+*/
+
+const STORAGE_KEY = 'cse_tx_v1';
+
+function saveTxList(list){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+}
+function loadTxList(){
+  try{
+    const s = localStorage.getItem(STORAGE_KEY);
+    return s ? JSON.parse(s) : [];
+  }catch(e){
+    return [];
+  }
+}
+
+function renderTxTable(){
+  const tx = loadTxList();
+  const tbody = document.querySelector('#tx-table tbody');
+  tbody.innerHTML = '';
+  tx.slice().reverse().forEach((t, idx) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${t.ticker}</td>
+      <td>${t.type}</td>
+      <td>${t.qty}</td>
+      <td>${Number(t.price).toFixed(2)}</td>
+      <td>${t.date || ''}</td>
+      <td style="text-align:right"><button data-index="${tx.length-1-idx}" class="btn ghost btn-delete">Delete</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+  document.querySelectorAll('.btn-delete').forEach(b=>{
+    b.addEventListener('click', e=>{
+      const i = Number(e.currentTarget.dataset.index);
+      const list = loadTxList();
+      list.splice(i,1);
+      saveTxList(list);
+      renderTxTable();
+      renderPortfolio();
+    });
+  });
+}
+
+function addTransaction({ticker,type,qty,price,date}){
+  const list = loadTxList();
+  list.push({ticker: ticker.trim().toUpperCase(), type, qty: Number(qty), price: Number(price), date: date || ''});
+  saveTxList(list);
+  renderTxTable();
+  renderPortfolio();
+}
+
+function clearTransactions(){
+  if(!confirm('Clear ALL transactions? This cannot be undone.')) return;
+  saveTxList([]);
+  renderTxTable();
+  renderPortfolio();
+}
+
+function importCsvFile(file){
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const txt = e.target.result;
+    const rows = txt.split(/\r?\n/).map(r=>r.trim()).filter(r=>r);
+    const parsed = [];
+    rows.forEach((r, i)=>{
+      const cols = r.split(',');
+      if(i===0 && /ticker/i.test(cols[0])) return; // skip header if present
+      if(cols.length >= 4){
+        parsed.push({
+          ticker: cols[0].trim().toUpperCase(),
+          type: cols[1].trim().toLowerCase(),
+          qty: Number(cols[2]),
+          price: Number(cols[3]),
+          date: cols[4] ? cols[4].trim() : ''
+        });
+      }
+    });
+    const current = loadTxList();
+    saveTxList(current.concat(parsed));
+    renderTxTable();
+    renderPortfolio();
+    alert('Imported '+parsed.length+' rows');
+  };
+  reader.readAsText(file);
+}
+
+function exportCsv(){
+  const tx = loadTxList();
+  const rows = ['ticker,type,qty,price,date'].concat(tx.map(t => `${t.ticker},${t.type},${t.qty},${t.price},${t.date || ''}`));
+  const blob = new Blob([rows.join('\\n')], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'transactions.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function aggregateHoldings(){
+  const tx = loadTxList();
+  const map = {};
+  for(const t of tx){
+    const key = t.ticker;
+    if(!map[key]) map[key] = {ticker:key, qty:0, totalCost:0, buys:0};
+    if(t.type === 'buy'){
+      map[key].qty += t.qty;
+      map[key].totalCost += t.qty * t.price;
+      map[key].buys += t.qty;
+    } else {
+      map[key].qty -= t.qty;
+      // for sells, we do not adjust totalCost (we show avg cost of remaining by keeping totalCost proportional)
+      map[key].totalCost -= Math.min(t.qty, map[key].buys) * (map[key].totalCost / Math.max(map[key].buys,1));
+      map[key].buys = Math.max(0, map[key].buys - t.qty);
+    }
+  }
+  // convert to array and compute avg
+  const arr = Object.values(map).map(h=>{
+    const avg = h.qty>0 ? (h.totalCost / h.qty) : (h.totalCost ? h.totalCost : 0);
+    return {ticker:h.ticker, qty: Math.round((h.qty+Number.EPSILON)*100)/100, avgCost: Number(avg || 0), totalCost: Number(h.totalCost || 0)};
+  }).filter(r => Math.abs(r.qty) > 0); // drop zero holdings
+  arr.sort((a,b)=>a.ticker.localeCompare(b.ticker));
+  return arr;
+}
+
+function renderPortfolio(){
+  const holdings = aggregateHoldings();
+  const tbody = document.querySelector('#portfolio-table tbody');
+  tbody.innerHTML = '';
+  let totalInvested = 0, marketValue = 0;
+  holdings.forEach(h=>{
+    totalInvested += h.totalCost;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><strong>${h.ticker}</strong></td>
+      <td>${h.qty}</td>
+      <td>${Number(h.avgCost).toFixed(2)}</td>
+      <td>${Number(h.totalCost).toFixed(2)}</td>
+      <td>
+        <input data-ticker="${h.ticker}" class="price-input" style="width:110px;padding:6px;border-radius:6px;border:1px solid #ddd" placeholder="LKR" />
+      </td>
+      <td class="mv">-</td>
+      <td class="pl">-</td>
+      <td style="text-align:right">
+        <button class="btn ghost chart-btn" data-ticker="${h.ticker}">Chart</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // load stored prices
+  const priceStore = JSON.parse(localStorage.getItem('cse_prices_v1')||'{}');
+  document.querySelectorAll('.price-input').forEach(inp=>{
+    const t = inp.dataset.ticker;
+    if(priceStore[t]) inp.value = Number(priceStore[t]).toFixed(2);
+    inp.addEventListener('change', ()=>{
+      priceStore[t] = Number(inp.value) || 0;
+      localStorage.setItem('cse_prices_v1', JSON.stringify(priceStore));
+      recalcPortfolio();
+    });
+  });
+
+  document.querySelectorAll('.chart-btn').forEach(b=>{
+    b.addEventListener('click', e=>{
+      const t = e.currentTarget.dataset.ticker;
+      // open TradingView search for ticker - user can adjust symbol if needed
+      const url = 'https://www.tradingview.com/symbols/' + encodeURIComponent(t) + '/';
+      window.open(url, '_blank');
+    });
+  });
+
+  function recalcPortfolio(){
+    const priceStore2 = JSON.parse(localStorage.getItem('cse_prices_v1')||'{}');
+    let mv = 0;
+    document.querySelectorAll('#portfolio-table tbody tr').forEach((row)=>{
+      const ticker = row.querySelector('input.price-input').dataset.ticker;
+      const qty = Number(row.children[1].textContent) || 0;
+      const avg = Number(row.children[2].textContent) || 0;
+      const totalCost = Number(row.children[3].textContent) || 0;
+      const price = Number(priceStore2[ticker] || 0);
+      const marketVal = qty * price;
+      const pl = marketVal - totalCost;
+      row.querySelector('.mv').textContent = marketVal ? marketVal.toFixed(2) : '-';
+      row.querySelector('.pl').textContent = (pl ? pl.toFixed(2) : '-');
+      mv += marketVal;
+    });
+    document.getElementById('total-invested').textContent = 'LKR ' + (totalInvested ? totalInvested.toFixed(2) : '0.00');
+    document.getElementById('market-value').textContent = 'LKR ' + (mv ? mv.toFixed(2) : '0.00');
+    document.getElementById('unreal-pl').textContent = 'LKR ' + ((mv - totalInvested) ? (mv - totalInvested).toFixed(2) : '0.00');
+  }
+  recalcPortfolio();
+}
+
+/* UI wiring */
+document.getElementById('tx-add').addEventListener('click', ()=>{
+  const t = document.getElementById('tx-ticker').value.trim().toUpperCase();
+  const type = document.getElementById('tx-type').value;
+  const qty = Number(document.getElementById('tx-qty').value) || 0;
+  const price = Number(document.getElementById('tx-price').value) || 0;
+  const date = document.getElementById('tx-date').value;
+  if(!t || qty <= 0 || price <= 0){ alert('Please provide ticker, qty, and price'); return; }
+  addTransaction({ticker:t, type, qty, price, date});
+  document.getElementById('tx-ticker').value=''; document.getElementById('tx-qty').value=''; document.getElementById('tx-price').value=''; document.getElementById('tx-date').value='';
+});
+
+document.getElementById('tx-clear').addEventListener('click', ()=>{ document.getElementById('tx-ticker').value=''; document.getElementById('tx-qty').value=''; document.getElementById('tx-price').value=''; document.getElementById('tx-date').value=''; });
+
+document.getElementById('tx-clear-all').addEventListener('click', clearTransactions);
+
+document.getElementById('export-csv').addEventListener('click', exportCsv);
+document.getElementById('import-csv-btn').addEventListener('click', ()=>document.getElementById('import-csv-file').click());
+document.getElementById('import-csv-file').addEventListener('change', (e)=>{
+  const f = e.target.files[0];
+  if(f) importCsvFile(f);
+});
+
+document.getElementById('export-portfolio').addEventListener('click', ()=>{
+  const holdings = aggregateHoldings();
+  const rows = ['ticker,qty,avgCost,totalCost'].concat(holdings.map(h=>`${h.ticker},${h.qty},${h.avgCost.toFixed(2)},${h.totalCost.toFixed(2)}`));
+  const blob = new Blob([rows.join('\\n')], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'holdings.csv'; a.click(); URL.revokeObjectURL(url);
+});
+
+document.getElementById('refresh-manual').addEventListener('click', ()=>renderPortfolio());
+
+/* tabs */
+document.getElementById('tab-transactions').addEventListener('click', ()=>{
+  document.getElementById('view-transactions').style.display = ''; document.getElementById('view-portfolio').style.display = 'none';
+  document.getElementById('tab-transactions').classList.remove('ghost'); document.getElementById('tab-portfolio').classList.add('ghost');
+});
+document.getElementById('tab-portfolio').addEventListener('click', ()=>{
+  document.getElementById('view-transactions').style.display = 'none'; document.getElementById('view-portfolio').style.display = '';
+  document.getElementById('tab-transactions').classList.add('ghost'); document.getElementById('tab-portfolio').classList.remove('ghost');
+  renderPortfolio();
+});
+
+/* startup */
+renderTxTable();
+renderPortfolio();
+
+</script>
+</body>
+</html>
